@@ -1,5 +1,5 @@
 ---
-title: "yjkim93.github.io"
+title: "Youngjun Kim"
 listing:
   contents: posts
   sort: "date desc"
