@@ -1,0 +1,200 @@
+---
+title: "Spatial Transcriptomics Data Analysis Tutorial 04: Clustering"
+description: "This tutorial covers the preparation steps for spatial transcriptomics data analysis using Bioconductor."
+author:
+  - name: Youngjun Kim
+    url: https://yjkim93.github.io
+    orcid: 0000-0003-3346-9457
+date: 12-21-2025
+categories: [spatial-transcriptomics, bioconductor, R]
+citation:
+  url: https://yjkim93.github.io/posts/2025-12-21-spatial-transcriptomics-04-clustering/
+draft: false
+execute:
+  warning: false
+editor: source
+---
+
+# 4. Clustering and Annotation
+
+## Load packages
+
+```{r}
+#| label: load-packages-preparation
+#| message: false
+library(Banksy)
+library(igraph)
+library(ggspavis)
+library(BayesSpace)
+library(nnSVG)
+library(HDF5Array)
+library(patchwork)
+library(SpatialExperiment)
+library(scran) 
+library(scater)
+library(scrapper)
+library(SingleR)
+library(qs2)
+library(viridis)
+library(RColorBrewer)
+library(pheatmap)
+```
+
+## Load Data
+
+```{r}
+#| label: define-path
+#| include: false
+data_path <- "/home/kim/workspace/spatial_transcriptomics/data"
+```
+
+```{r}
+#| label: define-data-path
+visium_data_path <- file.path(data_path, "raw_colon_cancer")
+hdf_data_path <- file.path(data_path, "hdf5_colon_cancer")
+```
+
+```{r}
+#| label: import-data
+spe <- loadHDF5SummarizedExperiment(
+  dir = hdf_data_path,
+  prefix = "03_processed_"
+)
+```
+
+## Clustering
+
+### Non-spatially aware clustering
+
+#### Leiden Clustering
+
+The simplest way to cluster the spots is to use the same methods as in scRNA-seq analysis. Here, we use the Leiden clustering algorithm on the PCs obtained from standard PCA. We use the `scran::buildSNNGraph()` function to build a shared nearest neighbor (SNN) graph based on the Jaccard similarity of the k-nearest neighbors in PCA space. We then apply the Leiden algorithm using `igraph::cluster_leiden()` function to identify clusters of spots.
+
+```{r}
+#| label: run-leiden-clustering
+
+# Build shared nearest neighbor (SNN) graph
+snn_graph <- buildSNNGraph(spe, use.dimred = "PCA", type="jaccard", k = 20)
+
+# Cluster using the Leiden algorithm
+leiden_cluster <- cluster_leiden(snn_graph, objective_function="modularity", resolution = 0.6)
+
+# Add cluster labels to colData
+spe$leiden_cluster <- factor(leiden_cluster$membership)
+
+table(spe$leiden_cluster)
+```
+
+### Spatially aware clustering
+For spatial transcriptomics, we can also incorporate spatial information into the clustering process. Here, we will use two methods: `BayesSpace` and `BANKSY`.
+
+#### Clustering with BayesSpace
+
+[`BayesSpace`](https://www.nature.com/articles/s41587-021-00935-2) uses a Bayesian statistical model to cluster spots based on both gene expression and spatial location.
+
+```{r}
+#| label: run-bayesspace-clustering
+
+# Prepare data for 'BayesSpace'. We skip PCA here as we have already computed PCs.
+spe <- spatialPreprocess(spe, skip.PCA=TRUE)
+
+# Perform spatial clustering with 'BayesSpace' using 'd=10' PCs and targeting 'q=8' clusters
+spe <- spatialCluster(spe, q=8, d=10, nrep=1e3, burn.in=100) 
+
+# Add BayesSpace cluster labels to colData
+spe$bayesspace_cluster <- factor(spe$spatial.cluster)
+table(spe$bayesspace_cluster)
+```
+
+#### Clustering with BANKSY
+
+Since we have already computed spatially-aware PCs using `BANKSY`, we can use these PCs to build an SNN graph and perform clustering using the Leiden algorithm. We will use the PCs obtained from BANKSY with λ = 0.2 or 0.8 for clustering.
+
+```{r}
+#| label: run-banksy-clustering
+# Build shared nearest neighbor (SNN) graph
+snn_graph_banksy_lam0.2 <- buildSNNGraph(spe, use.dimred = "PCA_banksy_lam0.2", type="jaccard", k = 20)
+snn_graph_banksy_lam0.8 <- buildSNNGraph(spe, use.dimred = "PCA_banksy_lam0.8", type="jaccard", k = 20)
+
+# Cluster using the Leiden algorithm
+banksy_cluster_lam0.2 <- cluster_leiden(snn_graph_banksy_lam0.2, objective_function="modularity", resolution = 0.6)
+banksy_cluster_lam0.8 <- cluster_leiden(snn_graph_banksy_lam0.8, objective_function="modularity", resolution = 0.6)
+
+# Add cluster labels to colData
+spe$banksy_cluster_lam0.2 <- factor(banksy_cluster_lam0.2$membership)
+spe$banksy_cluster_lam0.8 <- factor(banksy_cluster_lam0.8$membership)
+
+table(spe$banksy_cluster_lam0.2)
+table(spe$banksy_cluster_lam0.8)
+```
+
+### Visualization of the different clustering results
+```{r}
+#| label: plot-clustering-results
+
+ks <- c("leiden_cluster", "bayesspace_cluster", "banksy_cluster_lam0.2", "banksy_cluster_lam0.8") 
+
+# Plot spatial distribution of clusters for each method
+plots <- c(lapply(ks, \(.) {
+    plt <- plotVisium(spe, annotate=., zoom = T, point_shape = 22, point_size = 1)
+    plt
+}) ,  
+  plotVisium(spe, zoom = T,  spots=FALSE )) # add a plot of the tissue without spots
+
+# combine plots
+plots |>  wrap_plots(ncol=2) &
+      scale_fill_brewer(palette = "Set1") &
+    theme(legend.key.size=unit(0, "lines"), legend.justification="left")
+```
+
+We can appreciate that all methods capture major tissue structures. The borders of the clusters from `BANKSY` with λ = 0.8 appear to be more "smoothened out". This is expected as higher λ values give more weight to spatial information.
+
+It may be helpful to visualize individual clusters to see the spatial patterns more clearly. Here, we see the clusters obtained from `BANKSY` with λ = 0.2.
+
+```{r}
+#| label: plot-individual-clusters
+# plot selected clusters in order of frequency,
+
+cluster_col <- "banksy_cluster_lam0.2"
+
+# highlighting cells assigned to cluster 'k'
+lapply(tail(names(sort(table(spe[[cluster_col]]))), length(levels(spe[[cluster_col]]))), \(k) {
+    spe$foo <- spe[[cluster_col]] == k
+    spe <- spe[, order(spe$foo)]
+    plt <- plotCoords(spe, annotate="foo")
+    plt$layers[[1]]$aes_params$stroke <- 0
+    plt$layers[[1]]$aes_params$size <- 0.5
+    plt + ggtitle(k)
+}) |>
+    wrap_plots(nrow=3) &
+    scale_color_manual(values=c("white", "red")) &
+    theme(plot.title=element_text(hjust=0.5), legend.position="none")
+```
+
+## Annotation
+
+
+
+
+## Save the processed data
+```{r}
+#| label: save-processed-data
+saveHDF5SummarizedExperiment(
+  spe,
+  dir = hdf_data_path,
+  prefix = "04_clustered_",
+  replace = TRUE,
+  chunkdim = NULL,
+  level = NULL,
+  as.sparse = NA,
+  verbose = NA
+)
+```
+
+:::{.callout-tip collapse="true"}
+## Expand for Session Info
+```{r}
+#| label: session-info
+sessionInfo()
+```
+:::

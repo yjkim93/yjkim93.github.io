@@ -3,14 +3,17 @@ project:
   output-dir: docs
 
 website:
-  title: "yjkim93.github.io"
+  title: "Youngjun Kim"
   navbar:
     right:
+      - href: index.qmd
+        text: Home
       - about.qmd
+      - posts.qmd
       - icon: github
-        href: https://github.com/
-      - icon: twitter
-        href: https://twitter.com
+        href: https://github.com/yjkim93
+      - icon: linkedin
+        href: https://www.linkedin.com/in/yjkimmuno/
 format:
   html:
     theme:

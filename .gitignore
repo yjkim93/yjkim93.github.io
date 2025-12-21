@@ -1,1 +1,4 @@
 /.quarto/
+
+/_*.local
+render.sh

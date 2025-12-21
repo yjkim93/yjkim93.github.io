@@ -1,0 +1,201 @@
+---
+title: "Spatial Transcriptomics Data Analysis Tutorial 01: Preparation"
+description: "This tutorial covers the preparation steps for spatial transcriptomics data analysis using Bioconductor."
+author:
+  - name: Youngjun Kim
+    url: https://yjkim93.github.io
+    orcid: 0000-0003-3346-9457
+date: 12-21-2025
+categories: [spatial-transcriptomics, bioconductor, R]
+citation:
+  url: https://yjkim93.github.io/posts/2025-12-21-spatial-transcriptomics-01-preparation/
+draft: false
+execute:
+  warning: false
+editor: source
+---
+
+# 1. Preparation
+
+## Load packages
+
+```{r}
+#| label: load-packages-preparation
+#| message: false
+library(SpatialExperiment)
+library(VisiumIO)
+library(arrow)
+library(qs2)
+library(ggspavis)
+library(patchwork)
+library(dplyr)
+library(arrow)
+library(scuttle)
+library(HDF5Array)
+```
+
+## Load Data
+
+My data is stored in the following path. Please change the path accordingly.
+```{r}
+#| label: define-path
+data_path <- "/home/kim/workspace/spatial_transcriptomics/data"
+```
+
+```{r}
+#| label: define-data-path
+visium_data_path <- file.path(data_path, "raw_colon_cancer")
+hdf_data_path <- file.path(data_path, "hdf5_colon_cancer")
+```
+
+Visium HD spots are arranged as 2 × 2 µm squares. Space Ranger outputs data at three bin sizes: 2 µm, 8 µm, and 16 µm. Smaller bin sizes provide higher spatial resolution but result in greater data sparsity. In this tutorial, we use a bin size of 16 µm.
+
+```{r}
+#| label: import-data
+spe <- TENxVisiumHD(
+  spacerangerOut = visium_data_path,
+  processing = "filtered",
+  format = "h5",
+  images = "lowres",
+  bin_size = "016"
+) |>
+  import()
+```
+
+## Taking a peek at the data
+
+```{r}
+#| label: data-dimensions
+dim(spe)
+```
+
+The dataset contains 127,809 spots and 18,085 genes.
+
+Because *SpatialExperiment* is an extension of *SingleCellExperiment*, it uses a similar data structure: the count matrix is organized with genes as rows and spots as columns. If you are more familiar with Python’s *AnnData* and *scanpy*, note that this orientation is the transpose of what you may expect.
+
+![](https://github.com/drighelli/SpatialExperiment/raw/devel/vignettes/SPE.png)
+
+Metadata for spots and genes can be accessed using `colData(spe)` and `rowData(spe)`, respectively.
+
+```{r}
+#| label: spot-metadata
+# Spot metadata
+head(colData(spe))
+```
+
+```{r}
+#| label: gene-metadata
+# Gene metadata
+head(rowData(spe))
+```
+
+Since the current row names are Ensembl ID, we update them to gene symbols for easier downstream analysis.
+
+```{r}
+#| label: update-rownames
+rownames(spe) <- uniquifyFeatureNames(
+  ID = rowData(spe)$ID,
+  names = rowData(spe)$Symbol
+)
+```
+
+The count matrix itself can be accessed using `counts(spe)`.
+```{r}
+#| label: count-matrix
+head(counts(spe))
+```
+
+One of the data specific to spatial transcriptomics is the spatial coordinates of each spot, which can be accessed using `spatialCoords(spe)`.
+```{r}
+#| label: spatial-coordinates
+head(spatialCoords(spe))
+```
+
+We can also visualize the spatial distribution of spots on the tissue slide using the `plotVisium()` function from the *ggspavis* package.
+```{r}
+#| label: plot-image
+plotVisium(spe)
+```
+
+Based on the plot, we can see the tissue section and the spots that map to the tissue. It seems that the data is already filtered to retain only spots that map to the tissue. We can confirm this by checking the `in_tissue` column in the `colData(spe)`.
+```{r}
+#| label: check-in-tissue
+table(spe$in_tissue)
+```
+
+We can also visualize the expression of a specific gene on the tissue slide. For example, we can visualize the expression of the gene `PIGR`.
+```{r}
+#| label: plot-gene-expression
+plotVisium(
+  spe,
+  annotate = "PIGR",
+  assay = "counts",
+  point_size = 1,
+  point_shape = 22
+)
+```
+
+## Subsetting the data
+
+Since the dataset is large, we will subset a smaller region for faster processing. To decide which region to subset, we zoom in on the tissue section where the spots are mapped using `zoom = TRUE` option. Also, we show the axes using `show_axes = TRUE` option to help us decide the bounding box coordinates.
+```{r}
+#| label: plot-zoomed
+plotVisium(spe, spots = FALSE, zoom = TRUE, show_axes = TRUE)
+```
+
+The x and y axes values denotes `scalefactor` * `spatialCoords`. From the plot, we will subset the bounding box with the following coordinates:
+
+- xmin: 70
+- ymin: 200
+- xsize: 60
+- ysize: 60
+
+```{r}
+#| label: subset-data
+bb_xmin <- 70
+bb_ymin <- 200
+bb_xsize <- 60
+bb_ysize <- 60
+
+getSubsetMask <- function(spe, xmin, ymin, xsize, ysize) {
+  mask <-
+    spatialCoords(spe)[, 1] * scaleFactors(spe) > xmin &
+    spatialCoords(spe)[, 1] * scaleFactors(spe) < (xmin + xsize) &
+    spatialCoords(spe)[, 2] * scaleFactors(spe) > ymin &
+    spatialCoords(spe)[, 2] * scaleFactors(spe) < (ymin + ysize)
+  return(mask)
+}
+
+spe <- spe[, getSubsetMask(spe, bb_xmin, bb_ymin, bb_xsize, bb_ysize)]
+dim(spe)
+```
+
+After subsetting, there are 14,207 spots remaining. We can also visualize the subsetted region
+
+```{r}
+#| label: plot-subsetted
+plotVisium(spe, spots = TRUE)
+```
+
+## Save the subsetted data
+```{r}
+#| label: save-subsetted
+saveHDF5SummarizedExperiment(
+  spe,
+  dir = hdf_data_path,
+  prefix = "01_subsetted_",
+  replace = TRUE,
+  chunkdim = NULL,
+  level = NULL,
+  as.sparse = NA,
+  verbose = NA
+)
+```
+
+:::{.callout-tip collapse="true"}
+## Expand for Session Info
+```{r}
+#| label: session-info
+sessionInfo()
+```
+:::
