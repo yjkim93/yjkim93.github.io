@@ -3,18 +3,18 @@
     "listing": "/index.html",
     "items": [
       "/posts/2025-12-21-spatial-transcriptomics-04-clustering/index.html",
-      "/posts/2025-12-21-spatial-transcriptomics-02-qc/index.html",
-      "/posts/2025-12-21-spatial-transcriptomics-03-processing/index.html",
-      "/posts/2025-12-21-spatial-transcriptomics-01-preparation/index.html"
+      "/posts/2025-12-20-spatial-transcriptomics-03-processing/index.html",
+      "/posts/2025-12-19-spatial-transcriptomics-02-qc/index.html",
+      "/posts/2025-12-18-spatial-transcriptomics-01-preparation/index.html"
     ]
   },
   {
     "listing": "/posts.html",
     "items": [
       "/posts/2025-12-21-spatial-transcriptomics-04-clustering/index.html",
-      "/posts/2025-12-21-spatial-transcriptomics-02-qc/index.html",
-      "/posts/2025-12-21-spatial-transcriptomics-03-processing/index.html",
-      "/posts/2025-12-21-spatial-transcriptomics-01-preparation/index.html"
+      "/posts/2025-12-20-spatial-transcriptomics-03-processing/index.html",
+      "/posts/2025-12-19-spatial-transcriptomics-02-qc/index.html",
+      "/posts/2025-12-18-spatial-transcriptomics-01-preparation/index.html"
     ]
   }
 ]
