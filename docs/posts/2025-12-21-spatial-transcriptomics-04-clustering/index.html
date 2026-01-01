@@ -252,8 +252,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="fu">table</span>(spe<span class="sc">$</span>leiden_cluster)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>
-   1    2    3    4    5    6    7 
-1834 1167 1778 2356 2187 2200 1093 </code></pre>
+   1    2    3    4    5    6    7    8 
+1855 1828  767 1841 2117 2195 1103  909 </code></pre>
 </div>
 </div>
 </section>
@@ -277,7 +277,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <div class="cell-output cell-output-stdout">
 <pre><code>
    1    2    3    4    5    6    7    8 
-2547 2356 2599 1036 1030 1727  531  789 </code></pre>
+2354 2553  534 1735 2588 1015  797 1039 </code></pre>
 </div>
 </div>
 </section>
@@ -301,13 +301,13 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <div class="cell-output cell-output-stdout">
 <pre><code>
    1    2    3    4    5    6    7    8    9   10 
-1092 1183 1290 1037 1662  643 2083  989 1552 1084 </code></pre>
+1663 1080 1557 1488 1213 1358  521 1656 1002 1077 </code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="fu">table</span>(spe<span class="sc">$</span>banksy_cluster_lam0<span class="fl">.8</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>
-   1    2    3    4    5    6    7    8    9   10   11   12 
- 933 1310 1313  667 1004 1398  873  734 1118  965 1091 1209 </code></pre>
+   1    2    3    4    5    6    7    8    9   10   11 
+1761 1153 1284 1528  892 1091 1861 1083  322  972  668 </code></pre>
 </div>
 </div>
 </section>
@@ -359,20 +359,161 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </section>
 <section id="annotation" class="level2">
 <h2 class="anchored" data-anchor-id="annotation">Annotation</h2>
-</section>
-<section id="save-the-processed-data" class="level2">
-<h2 class="anchored" data-anchor-id="save-the-processed-data">Save the processed data</h2>
+<p>10X Genomics also provides a reference single-cell RNA-seq data (FLEX technology) for the same colon cancer tissue. We can annotate the clusters obtained above using this reference scRNA-seq data. We will discuss how to integrate single-cell reference data for annotating spatial transcriptomics data in more detail in later sections.</p>
+<p>Here, I will use 5,000 subsetted cells from the reference scRNA-seq data, and use the <code>SingleR</code> package to annotate the spots based on the reference data.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="fu">saveHDF5SummarizedExperiment</span>(</span>
-<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>  spe,</span>
-<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">dir =</span> hdf_data_path,</span>
-<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">prefix =</span> <span class="st">"04_clustered_"</span>,</span>
-<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">replace =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">chunkdim =</span> <span class="cn">NULL</span>,</span>
-<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">level =</span> <span class="cn">NULL</span>,</span>
-<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">as.sparse =</span> <span class="cn">NA</span>,</span>
-<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">verbose =</span> <span class="cn">NA</span></span>
-<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>ref.scrnaseq <span class="ot">&lt;-</span> <span class="fu">qs_read</span>(<span class="fu">file.path</span>(visium_data_path, <span class="st">"NatGenetics2025_CRC_5k.SE.qs"</span>))</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="fu">table</span>(<span class="fu">colData</span>(ref.scrnaseq)<span class="sc">$</span>labels)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+              B cells           Endothelial            Fibroblast 
+                  316                   308                   868 
+Intestinal Epithelial               Myeloid              Neuronal 
+                  523                   599                   296 
+        Smooth Muscle               T cells                 Tumor 
+                  649                   351                  1090 </code></pre>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>pred <span class="ot">&lt;-</span> <span class="fu">SingleR</span>(<span class="at">test =</span> <span class="fu">logcounts</span>(spe),</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>                <span class="at">ref =</span> <span class="fu">assay</span>(ref.scrnaseq, <span class="st">"data"</span>),</span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>                <span class="at">labels =</span> ref.scrnaseq<span class="sc">$</span>labels,</span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>                <span class="at">aggr.ref =</span> <span class="cn">TRUE</span>, <span class="co"># Pseudo-bulk aggregation of the reference</span></span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>                <span class="at">fine.tune =</span> <span class="cn">FALSE</span></span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>spe<span class="sc">$</span>label <span class="ot">&lt;-</span> pred<span class="sc">$</span>pruned.labels</span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a><span class="fu">table</span>(spe<span class="sc">$</span>label)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+              B cells           Endothelial            Fibroblast 
+                 1007                   840                  3340 
+Intestinal Epithelial               Myeloid              Neuronal 
+                 1633                   656                    66 
+        Smooth Muscle               T cells                 Tumor 
+                  505                  1570                  2991 </code></pre>
+</div>
+</div>
+<p>We can visualize the predictions on the tissue slide</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plotCoords</span>(spe, <span class="at">annotate=</span><span class="st">"label"</span>, <span class="at">point_size=</span><span class="dv">2</span>) <span class="sc">+</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_colour_brewer</span>(<span class="at">palette =</span> <span class="st">"Set1"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="index_files/figure-html/plot-annotation-results-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plotVisium</span>(spe, <span class="at">annotate=</span><span class="st">"label"</span>, <span class="at">zoom =</span> T, <span class="at">point_shape =</span> <span class="dv">22</span>, <span class="at">point_size =</span> <span class="dv">2</span>) <span class="sc">+</span> </span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_brewer</span>(<span class="at">palette =</span> <span class="st">"Set1"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="index_files/figure-html/plot-annotation-results-visium-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<p>We can compare the annotations with the clustering results obtained above.</p>
+<p>First, we look at Leiden clusters</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>tab_prop <span class="ot">&lt;-</span> <span class="fu">prop.table</span>(<span class="fu">table</span>(spe<span class="sc">$</span>leiden_cluster, spe<span class="sc">$</span>label), <span class="at">margin =</span> <span class="dv">1</span>)</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a><span class="do">## For display: round and remove 0s</span></span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>num_mat <span class="ot">&lt;-</span> <span class="fu">round</span>(tab_prop, <span class="dv">2</span>)</span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a>num_mat[num_mat <span class="sc">==</span> <span class="dv">0</span>] <span class="ot">&lt;-</span> <span class="st">""</span></span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a><span class="do">## Annotation colors</span></span>
+<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a>group_df <span class="ot">=</span> <span class="fu">data.frame</span>(<span class="at">row.names =</span> <span class="fu">colnames</span>(tab_prop), <span class="at">label=</span><span class="fu">colnames</span>(tab_prop))</span>
+<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a>ann_colors <span class="ot">=</span> <span class="fu">list</span>(</span>
+<span id="cb20-9"><a href="#cb20-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">label =</span> <span class="fu">setNames</span>(<span class="at">object =</span> <span class="fu">brewer.pal</span>(<span class="dv">9</span>, <span class="st">"Set1"</span>), <span class="fu">colnames</span>(tab_prop)))</span>
+<span id="cb20-10"><a href="#cb20-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-11"><a href="#cb20-11" aria-hidden="true" tabindex="-1"></a><span class="fu">pheatmap</span>(</span>
+<span id="cb20-12"><a href="#cb20-12" aria-hidden="true" tabindex="-1"></a>  tab_prop,</span>
+<span id="cb20-13"><a href="#cb20-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">cluster_rows =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb20-14"><a href="#cb20-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">cluster_cols =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb20-15"><a href="#cb20-15" aria-hidden="true" tabindex="-1"></a>  <span class="at">color =</span> <span class="fu">viridis</span>(<span class="dv">100</span>, <span class="at">option =</span> <span class="st">"magma"</span>, <span class="at">direction =</span> <span class="sc">-</span><span class="dv">1</span>)[<span class="dv">0</span><span class="sc">:</span><span class="dv">50</span>],</span>
+<span id="cb20-16"><a href="#cb20-16" aria-hidden="true" tabindex="-1"></a>  <span class="at">display_numbers =</span> num_mat,</span>
+<span id="cb20-17"><a href="#cb20-17" aria-hidden="true" tabindex="-1"></a>  <span class="at">fontsize_number =</span> <span class="dv">10</span>,</span>
+<span id="cb20-18"><a href="#cb20-18" aria-hidden="true" tabindex="-1"></a>  <span class="at">fontsize =</span> <span class="dv">12</span>,</span>
+<span id="cb20-19"><a href="#cb20-19" aria-hidden="true" tabindex="-1"></a>  <span class="at">border_color =</span> <span class="cn">NA</span>,</span>
+<span id="cb20-20"><a href="#cb20-20" aria-hidden="true" tabindex="-1"></a>  <span class="at">main =</span> <span class="st">"Leiden clusters vs. SingleR labels"</span>, </span>
+<span id="cb20-21"><a href="#cb20-21" aria-hidden="true" tabindex="-1"></a>  <span class="at">annotation_col =</span> group_df,</span>
+<span id="cb20-22"><a href="#cb20-22" aria-hidden="true" tabindex="-1"></a>  <span class="at">annotation_colors =</span> ann_colors  </span>
+<span id="cb20-23"><a href="#cb20-23" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="index_files/figure-html/plot-annotation-vs-leiden-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<p>We can appreciate that many clusters correspond well to specific cell types, e.g., cluster 6 to tumor cells, cluster 1 to epithelial cells, and cluster 4 to immune cells.</p>
+<p>Then, we look at BANKSY clusters with λ = 0.2</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a>tab_prop <span class="ot">&lt;-</span> <span class="fu">prop.table</span>(<span class="fu">table</span>(spe<span class="sc">$</span>banksy_cluster_lam0<span class="fl">.2</span>, spe<span class="sc">$</span>label), <span class="at">margin =</span> <span class="dv">1</span>)</span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a><span class="do">## For display: round and remove 0s</span></span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>num_mat <span class="ot">&lt;-</span> <span class="fu">round</span>(tab_prop, <span class="dv">2</span>)</span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>num_mat[num_mat <span class="sc">==</span> <span class="dv">0</span>] <span class="ot">&lt;-</span> <span class="st">""</span></span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a><span class="do">## Annotation colors</span></span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a>group_df <span class="ot">=</span> <span class="fu">data.frame</span>(<span class="at">row.names =</span> <span class="fu">colnames</span>(tab_prop), <span class="at">label=</span><span class="fu">colnames</span>(tab_prop))</span>
+<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a>ann_colors <span class="ot">=</span> <span class="fu">list</span>(</span>
+<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">label =</span> <span class="fu">setNames</span>(<span class="at">object =</span> <span class="fu">brewer.pal</span>(<span class="dv">9</span>, <span class="st">"Set1"</span>), <span class="fu">colnames</span>(tab_prop)))</span>
+<span id="cb21-10"><a href="#cb21-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-11"><a href="#cb21-11" aria-hidden="true" tabindex="-1"></a><span class="fu">pheatmap</span>(</span>
+<span id="cb21-12"><a href="#cb21-12" aria-hidden="true" tabindex="-1"></a>  tab_prop,</span>
+<span id="cb21-13"><a href="#cb21-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">cluster_rows =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb21-14"><a href="#cb21-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">cluster_cols =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb21-15"><a href="#cb21-15" aria-hidden="true" tabindex="-1"></a>  <span class="at">color =</span> <span class="fu">viridis</span>(<span class="dv">100</span>, <span class="at">option =</span> <span class="st">"magma"</span>, <span class="at">direction =</span> <span class="sc">-</span><span class="dv">1</span>)[<span class="dv">0</span><span class="sc">:</span><span class="dv">50</span>],</span>
+<span id="cb21-16"><a href="#cb21-16" aria-hidden="true" tabindex="-1"></a>  <span class="at">display_numbers =</span> num_mat,</span>
+<span id="cb21-17"><a href="#cb21-17" aria-hidden="true" tabindex="-1"></a>  <span class="at">fontsize_number =</span> <span class="dv">10</span>,</span>
+<span id="cb21-18"><a href="#cb21-18" aria-hidden="true" tabindex="-1"></a>  <span class="at">fontsize =</span> <span class="dv">12</span>,</span>
+<span id="cb21-19"><a href="#cb21-19" aria-hidden="true" tabindex="-1"></a>  <span class="at">border_color =</span> <span class="cn">NA</span>,</span>
+<span id="cb21-20"><a href="#cb21-20" aria-hidden="true" tabindex="-1"></a>  <span class="at">main =</span> <span class="st">"BANKSY clusters (lambda = 0.2) vs. SingleR labels"</span>, </span>
+<span id="cb21-21"><a href="#cb21-21" aria-hidden="true" tabindex="-1"></a>  <span class="at">annotation_col =</span> group_df,</span>
+<span id="cb21-22"><a href="#cb21-22" aria-hidden="true" tabindex="-1"></a>  <span class="at">annotation_colors =</span> ann_colors  </span>
+<span id="cb21-23"><a href="#cb21-23" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="index_files/figure-html/plot-annotation-vs-banksy-lam0.2-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<p>Again, many clusters correspond well to specific cell types, e.g., cluster 4, 8 to tumor cells, cluster 1 to epithelial cells, and cluster 5, 6 to immune cells.</p>
+<p>Finally, we look at BANKSY clusters with λ = 0.8</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>tab_prop <span class="ot">&lt;-</span> <span class="fu">prop.table</span>(<span class="fu">table</span>(spe<span class="sc">$</span>banksy_cluster_lam0<span class="fl">.8</span>, spe<span class="sc">$</span>label), <span class="at">margin =</span> <span class="dv">1</span>)</span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a><span class="do">## For display: round and remove 0s</span></span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>num_mat <span class="ot">&lt;-</span> <span class="fu">round</span>(tab_prop, <span class="dv">2</span>)</span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a>num_mat[num_mat <span class="sc">==</span> <span class="dv">0</span>] <span class="ot">&lt;-</span> <span class="st">""</span></span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a><span class="do">## Annotation colors</span></span>
+<span id="cb22-7"><a href="#cb22-7" aria-hidden="true" tabindex="-1"></a>group_df <span class="ot">=</span> <span class="fu">data.frame</span>(<span class="at">row.names =</span> <span class="fu">colnames</span>(tab_prop), <span class="at">label=</span><span class="fu">colnames</span>(tab_prop))</span>
+<span id="cb22-8"><a href="#cb22-8" aria-hidden="true" tabindex="-1"></a>ann_colors <span class="ot">=</span> <span class="fu">list</span>(</span>
+<span id="cb22-9"><a href="#cb22-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">label =</span> <span class="fu">setNames</span>(<span class="at">object =</span> <span class="fu">brewer.pal</span>(<span class="dv">9</span>, <span class="st">"Set1"</span>), <span class="fu">colnames</span>(tab_prop)))</span>
+<span id="cb22-10"><a href="#cb22-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-11"><a href="#cb22-11" aria-hidden="true" tabindex="-1"></a><span class="fu">pheatmap</span>(</span>
+<span id="cb22-12"><a href="#cb22-12" aria-hidden="true" tabindex="-1"></a>  tab_prop,</span>
+<span id="cb22-13"><a href="#cb22-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">cluster_rows =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb22-14"><a href="#cb22-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">cluster_cols =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb22-15"><a href="#cb22-15" aria-hidden="true" tabindex="-1"></a>  <span class="at">color =</span> <span class="fu">viridis</span>(<span class="dv">100</span>, <span class="at">option =</span> <span class="st">"magma"</span>, <span class="at">direction =</span> <span class="sc">-</span><span class="dv">1</span>)[<span class="dv">0</span><span class="sc">:</span><span class="dv">50</span>],</span>
+<span id="cb22-16"><a href="#cb22-16" aria-hidden="true" tabindex="-1"></a>  <span class="at">display_numbers =</span> num_mat,</span>
+<span id="cb22-17"><a href="#cb22-17" aria-hidden="true" tabindex="-1"></a>  <span class="at">fontsize_number =</span> <span class="dv">10</span>,</span>
+<span id="cb22-18"><a href="#cb22-18" aria-hidden="true" tabindex="-1"></a>  <span class="at">fontsize =</span> <span class="dv">12</span>,</span>
+<span id="cb22-19"><a href="#cb22-19" aria-hidden="true" tabindex="-1"></a>  <span class="at">border_color =</span> <span class="cn">NA</span>,</span>
+<span id="cb22-20"><a href="#cb22-20" aria-hidden="true" tabindex="-1"></a>  <span class="at">main =</span> <span class="st">"BANKSY clusters (lambda = 0.8) vs. SingleR labels"</span>, </span>
+<span id="cb22-21"><a href="#cb22-21" aria-hidden="true" tabindex="-1"></a>  <span class="at">annotation_col =</span> group_df,</span>
+<span id="cb22-22"><a href="#cb22-22" aria-hidden="true" tabindex="-1"></a>  <span class="at">annotation_colors =</span> ann_colors  </span>
+<span id="cb22-23"><a href="#cb22-23" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<p><img src="index_files/figure-html/plot-annotation-vs-banksy-lam0.8-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<p>This also seems comparable to the previous results.</p>
+</section>
+<section id="save-the-data-with-clustering-results" class="level2">
+<h2 class="anchored" data-anchor-id="save-the-data-with-clustering-results">Save the data with clustering results</h2>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="fu">saveHDF5SummarizedExperiment</span>(</span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a>  spe,</span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">dir =</span> hdf_data_path,</span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">prefix =</span> <span class="st">"04_clustered_"</span>,</span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">replace =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">chunkdim =</span> <span class="cn">NULL</span>,</span>
+<span id="cb23-7"><a href="#cb23-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">level =</span> <span class="cn">NULL</span>,</span>
+<span id="cb23-8"><a href="#cb23-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">as.sparse =</span> <span class="cn">NA</span>,</span>
+<span id="cb23-9"><a href="#cb23-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">verbose =</span> <span class="cn">NA</span></span>
+<span id="cb23-10"><a href="#cb23-10" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-1-contents" aria-controls="callout-1" aria-expanded="false" aria-label="Toggle callout">
@@ -387,7 +528,7 @@ Expand for Session Info
 <div id="callout-1" class="callout-1-contents callout-collapse collapse">
 <div class="callout-body-container callout-body">
 <div class="cell">
-<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sessionInfo</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sessionInfo</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>R version 4.5.2 (2025-10-31)
 Platform: x86_64-conda-linux-gnu

@@ -173,12 +173,141 @@ lapply(tail(names(sort(table(spe[[cluster_col]]))), length(levels(spe[[cluster_c
 
 ## Annotation
 
+10X Genomics also provides a reference single-cell RNA-seq data (FLEX technology) for the same colon cancer tissue. We can annotate the clusters obtained above using this reference scRNA-seq data. We will discuss how to integrate single-cell reference data for annotating spatial transcriptomics data in more detail in later sections. 
 
+Here, I will use 5,000 subsetted cells from the reference scRNA-seq data, and use the `SingleR` package to annotate the spots based on the reference data. 
 
-
-## Save the processed data
 ```{r}
-#| label: save-processed-data
+#| label: load-reference-data
+ref.scrnaseq <- qs_read(file.path(visium_data_path, "NatGenetics2025_CRC_5k.SE.qs"))
+table(colData(ref.scrnaseq)$labels)
+```
+
+```{r}
+#| label: run-singler-annotation
+
+pred <- SingleR(test = logcounts(spe),
+                ref = assay(ref.scrnaseq, "data"),
+                labels = ref.scrnaseq$labels,
+                aggr.ref = TRUE, # Pseudo-bulk aggregation of the reference
+                fine.tune = FALSE
+)
+
+spe$label <- pred$pruned.labels
+table(spe$label)
+```
+
+We can visualize the predictions on the tissue slide
+```{r}
+#| label: plot-annotation-results
+plotCoords(spe, annotate="label", point_size=2) +
+  scale_colour_brewer(palette = "Set1")
+```
+
+```{r}
+#| label: plot-annotation-results-visium
+plotVisium(spe, annotate="label", zoom = T, point_shape = 22, point_size = 2) + 
+  scale_fill_brewer(palette = "Set1")
+```
+
+We can compare the annotations with the clustering results obtained above. 
+
+First, we look at Leiden clusters
+
+```{r}
+#| label: plot-annotation-vs-leiden
+tab_prop <- prop.table(table(spe$leiden_cluster, spe$label), margin = 1)
+## For display: round and remove 0s
+num_mat <- round(tab_prop, 2)
+num_mat[num_mat == 0] <- ""
+
+## Annotation colors
+group_df = data.frame(row.names = colnames(tab_prop), label=colnames(tab_prop))
+ann_colors = list(
+  label = setNames(object = brewer.pal(9, "Set1"), colnames(tab_prop)))
+
+pheatmap(
+  tab_prop,
+  cluster_rows = TRUE,
+  cluster_cols = TRUE,
+  color = viridis(100, option = "magma", direction = -1)[0:50],
+  display_numbers = num_mat,
+  fontsize_number = 10,
+  fontsize = 12,
+  border_color = NA,
+  main = "Leiden clusters vs. SingleR labels", 
+  annotation_col = group_df,
+  annotation_colors = ann_colors  
+)
+```
+
+We can appreciate that many clusters correspond well to specific cell types, e.g., cluster 6 to tumor cells, cluster 1 to epithelial cells, and cluster 4 to immune cells.
+
+Then, we look at BANKSY clusters with λ = 0.2
+
+```{r}
+#| label: plot-annotation-vs-banksy-lam0.2
+tab_prop <- prop.table(table(spe$banksy_cluster_lam0.2, spe$label), margin = 1)
+## For display: round and remove 0s
+num_mat <- round(tab_prop, 2)
+num_mat[num_mat == 0] <- ""
+
+## Annotation colors
+group_df = data.frame(row.names = colnames(tab_prop), label=colnames(tab_prop))
+ann_colors = list(
+  label = setNames(object = brewer.pal(9, "Set1"), colnames(tab_prop)))
+
+pheatmap(
+  tab_prop,
+  cluster_rows = TRUE,
+  cluster_cols = TRUE,
+  color = viridis(100, option = "magma", direction = -1)[0:50],
+  display_numbers = num_mat,
+  fontsize_number = 10,
+  fontsize = 12,
+  border_color = NA,
+  main = "BANKSY clusters (lambda = 0.2) vs. SingleR labels", 
+  annotation_col = group_df,
+  annotation_colors = ann_colors  
+)
+```
+
+Again, many clusters correspond well to specific cell types, e.g., cluster 4, 8 to tumor cells, cluster 1 to epithelial cells, and cluster 5, 6 to immune cells.
+
+Finally, we look at BANKSY clusters with λ = 0.8
+
+```{r}
+#| label: plot-annotation-vs-banksy-lam0.8
+tab_prop <- prop.table(table(spe$banksy_cluster_lam0.8, spe$label), margin = 1)
+## For display: round and remove 0s
+num_mat <- round(tab_prop, 2)
+num_mat[num_mat == 0] <- ""
+
+## Annotation colors
+group_df = data.frame(row.names = colnames(tab_prop), label=colnames(tab_prop))
+ann_colors = list(
+  label = setNames(object = brewer.pal(9, "Set1"), colnames(tab_prop)))
+
+pheatmap(
+  tab_prop,
+  cluster_rows = TRUE,
+  cluster_cols = TRUE,
+  color = viridis(100, option = "magma", direction = -1)[0:50],
+  display_numbers = num_mat,
+  fontsize_number = 10,
+  fontsize = 12,
+  border_color = NA,
+  main = "BANKSY clusters (lambda = 0.8) vs. SingleR labels", 
+  annotation_col = group_df,
+  annotation_colors = ann_colors  
+)
+```
+
+This also seems comparable to the previous results. 
+
+## Save the data with clustering results
+```{r}
+#| label: save-clustered-data
 saveHDF5SummarizedExperiment(
   spe,
   dir = hdf_data_path,

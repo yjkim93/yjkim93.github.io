@@ -1,0 +1,457 @@
+---
+title: "Spatial Transcriptomics Data Analysis Tutorial 05: Spatially Variable Gene Detection"
+description: "This tutorial covers the preparation steps for spatial transcriptomics data analysis using Bioconductor."
+author:
+  - name: Youngjun Kim
+    url: https://yjkim93.github.io
+    orcid: 0000-0003-3346-9457
+date: 12-22-2025
+categories: [spatial-transcriptomics, bioconductor, R]
+citation:
+  url: https://yjkim93.github.io/posts/2025-12-22-spatial-transcriptomics-05-svgs/
+draft: false
+execute:
+  warning: false
+editor: source
+---
+
+# 5. Spatially Variable Gene Detection
+
+## Load packages
+
+```{r}
+#| label: load-packages-preparation
+#| message: false
+library(HDF5Array) 
+library(SpatialExperiment)
+library(scran)
+library(scater)
+library(igraph)
+
+library(Banksy)
+library(nnSVG)
+library(DESpace)
+
+library(AUCell)
+library(msigdbr)
+library(pals)
+
+library(ggplot2)
+library(ggspavis)
+library(patchwork)
+library(pheatmap)
+```
+
+## Load Data
+
+```{r}
+#| label: define-path
+#| include: false
+data_path <- "/home/kim/workspace/spatial_transcriptomics/data"
+```
+
+```{r}
+#| label: define-data-path
+visium_data_path <- file.path(data_path, "raw_colon_cancer")
+hdf_data_path <- file.path(data_path, "hdf5_colon_cancer")
+```
+
+```{r}
+#| label: import-data
+spe <- loadHDF5SummarizedExperiment(
+  dir = hdf_data_path,
+  prefix = "04_clustered_"
+)
+```
+
+## Spatially Variable Gene Detection
+
+Previously, we selected highly variable genes (HVGs) based solely on the mean–variance relationship of gene expression, without incorporating spatial information. However, many methods have since been developed to perform feature selection that explicitly accounts for spatial context. In spatial transcriptomics, it is often more informative to identify genes whose expression varies as a function of spatial location. Such genes are referred to as spatially variable genes (SVGs).
+
+[A recently published review paper](https://www.nature.com/articles/s41467-025-56080-w) grouped SVG detection methods into three broad categories:
+
+![](https://media.springernature.com/full/springer-static/image/art%3A10.1038%2Fs41467-025-56080-w/MediaObjects/41467_2025_56080_Fig2_HTML.png)
+
+1. **Overall SVG detection** methods identify genes that exhibit non-random spatial expression patterns across the tissue. These approaches fall into two main classes: Euclidean distance–based methods and graph-based methods. They assess how gene expression varies across spatial spots by modeling the relationship between each gene and its spatial neighborhood. Because they detect general spatial patterns without additional assumptions, these methods are well suited for feature selection in downstream analyses. Representative examples include `SpatialDE`, `nnSVG`, and `Hotspot`.
+2. **Cell-type–specific SVG detection** methods attribute spatial variation in gene expression to differences in expression across cell types that are unevenly distributed within a tissue section. As a result, these approaches require external cell-type annotations for spatial spots. Examples of methods in this category include `CTSV` and `C-SIDE`.
+3. **Spatial-domain marker SVG detection** methods focus on identifying genes that are significantly upregulated in specific spatial domains relative to others. These approaches require prior spatial domain annotations, which are typically inferred from the same spatial transcriptomics dataset. Examples include `DESpace` and `SpaGCN`.
+
+
+### nnSVG
+
+[`nnSVG`](https://www.nature.com/articles/s41467-023-39748-z) detects overall SVGs by modeling spatial gene expression using a nearest-neighbor Gaussian processes. 
+
+Since it uses nearest-neighbor Gaussian process, it is more scalable than algorithms using full Gaussian process such as `SpatialDE`. The computational cost of `nnSVG` is $O(n \times m^3)$, where $n$ is the number of spots and $m$ is the number of nearest neighbors considered. 
+
+Since `nnSVG` takes a while to run, we will use only the genes that were selected with `nnSVG::filter_genes()` for SVG detection. This function excludes mitochondrial genes and lowly expressed genes. 
+
+```{r}
+#| label: run-nnsvg
+#| eval: false
+set.seed(123)
+
+spe_nnsvg_genes_filtered <- spe
+rowData(spe_nnsvg_genes_filtered)$gene_name <- rowData(spe_nnsvg_genes_filtered)$Symbol
+spe_nnsvg_genes_filtered <- filter_genes(spe_nnsvg_genes_filtered)
+spe_nnsvg_genes_filtered <- nnSVG(spe_nnsvg_genes_filtered, n_threads = 20)
+```
+
+```{r}
+#| label: save-nnsvg-results
+#| include: false
+#| eval: false
+
+saveHDF5SummarizedExperiment(
+  spe_nnsvg_genes_filtered,
+  dir = hdf_data_path,
+  prefix = "nnsvg_res_",
+  replace = TRUE,
+  chunkdim = NULL,
+  level = NULL,
+  as.sparse = NA,
+  verbose = NA
+)
+```
+
+```{r}
+#| label: load-nnsvg-results
+#| include: false
+spe_nnsvg_genes_filtered <- loadHDF5SummarizedExperiment(
+  dir = hdf_data_path,
+  prefix = "nnsvg_res_"
+)
+```
+
+```{r}
+#| label: extract-top-nnsvg
+res_nnSVG <- rowData(spe_nnsvg_genes_filtered) 
+res_nnSVG <- res_nnSVG[order(res_nnSVG$rank), ]
+top_nnSVG <- res_nnSVG$Symbol[seq_len(5)]
+top_nnSVG
+```
+
+The top five SVGs detected by `nnSVG` are: `PIGR`, `OLFM4`, `MUC12`, `FCGBP`, and `MUC2`. 
+
+### DESpace
+[`DESpace`](https://academic.oup.com/bioinformatics/article/40/2/btae027/7577855) detects spatial-domain marker SVGs. Instead of using spatial coordinates directly, it takes spatial domains as proxy for spatial information. It fits a negative binomial model, with spatial domain information as covariates.
+
+Here, we will use BANKSY clusters (λ = 0.2) as spatial domain annotations for `DESpace`.
+
+```{r}
+#| label: run-despace
+#| eval: false
+res_DESpace <- svg_test(spe, cluster_col="banksy_cluster_lam0.2", verbose = TRUE)
+```
+```{r}
+#| label: save-despace-results
+#| include: false
+#| eval: false
+saveRDS(res_DESpace, file.path(hdf_data_path, "despace_svg_results.rds"))
+```
+
+```{r}
+#| label: load-despace-results
+#| include: false
+res_DESpace <- readRDS(file.path(hdf_data_path, "despace_svg_results.rds"))
+```
+
+```{r}
+#| label: extract-top-despace
+top_DESpace <- res_DESpace$gene_results$gene_id[seq_len(5)]
+top_DESpace
+```
+
+The top five SVGs detected by `DESpace` are: `PIGR`, `MUC2`, `FCGBP`, `PLA2G2A`, and `MUC12`, which overlap substantially with those detected by `nnSVG`.
+
+### Comparing HVGs and SVGs
+As we did in the previous sessions, we can extract the top highly variable genes (HVGs) selected based on the mean–variance relationship.
+```{r}
+#| label: extract-top-hvg
+dec <- modelGeneVarByPoisson(spe)
+is.mito <- rownames(spe)[grepl("^MT-", rownames(spe))]
+dec <- dec[!row.names(dec) %in% is.mito, ]
+top_HVG <- row.names(dec[order(dec$bio, decreasing = T), ])[1:5]
+top_HVG
+```
+
+We can now visualize the expression patterns of the top HVGs and SVGs detected by `nnSVG` and `DESpace`.
+
+```{r}
+#| label: plot-top-hvg-svgs
+
+gs <- c(
+    nnSVG=top_nnSVG,
+    DESpace=top_DESpace,
+    HVGs=top_HVG
+  )
+
+# Expression plots for each top gene
+ps <- lapply(seq_along(gs), \(.) {
+    plotCoords(spe,
+        point_size=0,
+        annotate=gs[.],
+        assay_name="logcounts",
+        feature_names="Symbol")
+})
+
+wrap_plots(ps, nrow=3) & theme(
+    legend.key.width=unit(0.4, "lines"),
+    legend.key.height=unit(0.8, "lines")) &
+    scale_color_gradientn(colors = pals::parula())
+```
+
+The first row shows the spatial expression patterns of the top five SVGs detected by `nnSVG`, the second row shows those detected by `DESpace`, and the third row shows those of the top five HVGs. Overall, the top SVGs tend to highlight epithelial regions more specifically than the HVGs.
+
+### Adding SVG results to `spe` object
+To facilitate downstream analyses, we can add the SVG detection results from `nnSVG` and `DESpace` to the `rowData` of the original `spe` object. For `nnSVG`, we will use the adjusted p-values (`padj`) to identify significant SVGs (padj < 0.05). For `DESpace`, we will use the top 1,000 SVGs as the total number of significant SVGs (FDR < 0.05) is quite large. Also, we exclude mitochonderial genes from the SVG lists.
+
+```{r}
+#| label: add-svg-results-to-spe
+
+# nnSVG
+svgs_nnSVG <- rowData(spe_nnsvg_genes_filtered)$Symbol[
+  which(rowData(spe_nnsvg_genes_filtered)$padj < 0.05)
+]
+rowData(spe)$svg_nnSVG <- rowData(spe)$Symbol %in% svgs_nnSVG
+
+# DESpace
+DESpace_results <- res_DESpace$gene_results
+DESpace_results <- DESpace_results[!row.names(DESpace_results) %in% is.mito, ]
+svgs_DESpace <- DESpace_results$gene_id[seq_len(1000)]
+
+rowData(spe)$svg_DESpace <- rowData(spe)$Symbol %in% svgs_DESpace
+```
+
+## Dimensionality Reduction with SVGs
+We can also use the SVGs detected by `nnSVG` or `DESpace` for dimensionality reduction, similar to what we did with HVGs in the previous session. 
+
+### PCA
+For PCA, we will choose the first 10 PCs.
+
+```{r}
+#| label: pca-svg
+
+# For SVGs from nnSVG 
+spe <- runPCA(
+  spe, 
+  ncomponents = 10, 
+  subset_row = rowData(spe)$svg_nnSVG, 
+  name = "PCA_nnSVG")
+
+# For SVGs from DESpace
+spe <- runPCA(
+  spe, 
+  ncomponents = 10, 
+  subset_row = rowData(spe)$svg_DESpace, 
+  name = "PCA_DESpace")
+```
+
+We will examine the spatial distribution of the PCs obtained from HVGs and SVGs.
+
+::: {.callout-note collapse="true"}
+
+#### PCA visualization function
+```{r}
+#| label: pca-visualization-function
+plot_pcs_on_coords <- function(spe, pcs_name, title = "Spatial distribution of PCs") {
+  # Get the PCA results
+  pcs <- reducedDim(spe, pcs_name)
+
+  # Visualize PCs on the tissue slice coordinates
+  ps <- lapply(
+    colnames(pcs), 
+    \(.) {
+      spe[[.]] <- pcs[, .]
+      plotCoords(spe, annotate = .)
+    }
+  )
+
+  # Arrange the plots and customize colors
+  (
+    patchwork::wrap_plots(ps, nrow = 2) &
+      theme(
+        legend.key.width  = unit(0.4, "lines"),
+        legend.key.height = unit(0.8, "lines")
+      ) &
+      scale_color_gradientn(colors = rev(hcl.colors(9, "Rocket")))
+  ) +
+    patchwork::plot_annotation(
+      title = title,
+      theme = theme(plot.title = element_text(hjust = 0.5, size = 16, face = "bold")))
+}
+```
+
+:::
+
+#### PCA visualization
+
+```{r}
+#| label: visualize-pca-hvg
+plot_pcs_on_coords(
+  spe, 
+  pcs_name = "PCA", 
+  title = "Spatial distribution of PCs (HVGs)"
+)
+```
+```{r}
+#| label: visualize-pca-svg-nnsvg
+plot_pcs_on_coords(
+  spe, 
+  pcs_name = "PCA_nnSVG", 
+  title = "Spatial distribution of PCs (nnSVG SVGs)"
+)
+```
+```{r}
+#| label: visualize-pca-svg-despace
+plot_pcs_on_coords(
+  spe, 
+  pcs_name = "PCA_DESpace", 
+  title = "Spatial distribution of PCs (DESpace SVGs)"
+)
+```
+
+PCs obtained from HVGs and SVGs look largely similar. 
+
+### BANKSY
+```{r}
+#| label: run-banksy-svg
+# Parameters for BANKSY
+k  <- 20
+l  <- 0.2
+a  <- "logcounts"
+xy <- c("array_row", "array_col")
+npcs <- 10
+cores <- 4
+set.seed(142857)
+
+svg_columns <- list(
+  nnSVG   = "svg_nnSVG",
+  DESpace = "svg_DESpace"
+)
+
+for (label in names(svg_columns)) {
+  flag <- svg_columns[[label]]
+  idx <- rowData(spe)[[flag]]
+  if (is.null(idx) || !any(idx, na.rm = TRUE)) next
+
+  tmp <- computeBanksy(
+    spe[idx, ],
+    assay_name  = a,
+    coord_names = xy,
+    k_geom      = k,
+    parallel    = TRUE,
+    num_cores   = cores
+  )
+  tmp <- runBanksyPCA(tmp, lambda = l, npcs = npcs)
+
+  reducedDim(spe, paste0("PCA_", label, "_banksy_lam", l)) <-
+    reducedDim(tmp, paste0("PCA_M0_lam", l))
+}
+```
+
+### UMAP
+For visualization, we run UMAP on the PCs obtained from both standard PCA and BANKSY.
+```{r}
+#| label: run-umap-svg
+# UMAP
+spe <- runUMAP(spe, dimred="PCA_nnSVG", name="UMAP_nnSVG_PCA")
+spe <- runUMAP(spe, dimred="PCA_nnSVG_banksy_lam0.2", name="UMAP_nnSVG_banksy_lam0.2")
+spe <- runUMAP(spe, dimred="PCA_DESpace", name="UMAP_DESpace_PCA")
+spe <- runUMAP(spe, dimred="PCA_DESpace_banksy_lam0.2", name="UMAP_DESpace_banksy_lam0.2")
+```
+
+```{r}
+#| label: visualize-umap-nnsvg
+p1 <- plotReducedDim(spe, dimred = "UMAP_tx", colour_by = "detected") + 
+  scale_colour_gradient(trans = "log", high = "yellow", low = "red") +
+  labs(title = "UMAP (PCA) - HVGs")
+
+p2 <- plotReducedDim(spe, dimred = "UMAP_banksy_lam0.2", colour_by = "detected") + 
+  scale_colour_gradient(trans = "log", high = "yellow", low = "red") +
+  labs(title = "UMAP (BANKSY λ = 0.2) - HVGs")
+
+p3 <- plotReducedDim(spe, dimred = "UMAP_nnSVG_PCA", colour_by = "detected") + 
+  scale_colour_gradient(trans = "log", high = "yellow", low = "red") +
+  labs(title = "UMAP (PCA) - nnSVG")
+
+p4 <- plotReducedDim(spe, dimred = "UMAP_nnSVG_banksy_lam0.2", colour_by = "detected") + 
+  scale_colour_gradient(trans = "log", high = "yellow", low = "red") +
+  labs(title = "UMAP (BANKSY λ = 0.2) - nnSVG")
+
+p5 <- plotReducedDim(spe, dimred = "UMAP_DESpace_PCA", colour_by = "detected") + 
+  scale_colour_gradient(trans = "log", high = "yellow", low = "red") +
+  labs(title = "UMAP (PCA) - DESpace")
+
+p6 <- plotReducedDim(spe, dimred = "UMAP_DESpace_banksy_lam0.2", colour_by = "detected") + 
+  scale_colour_gradient(trans = "log", high = "yellow", low = "red") +
+  labs(title = "UMAP (BANKSY λ = 0.2) - DESpace")
+
+p1 + p2 + p3 + p4 + p5 + p6 + 
+  plot_layout(ncol = 2)
+```
+
+## Clustering
+
+We can also perform clustering based on the PCs obtained from SVGs using either standard PCA or BANKSY.
+```{r}
+#| label: run-leiden-clustering-svg
+clustering_list <- list(
+  nnSVG_leiden_cluster = "PCA_nnSVG",
+  nnSVG_banksy_cluster_lam0.2 = "PCA_nnSVG_banksy_lam0.2",
+  DESpace_leiden_cluster = "PCA_DESpace",
+  DESpace_banksy_cluster_lam0.2 = "PCA_DESpace_banksy_lam0.2"
+)
+
+for (label in names(clustering_list)) {
+  dimred_name <- clustering_list[[label]]
+  snn_graph <- buildSNNGraph(spe, use.dimred = dimred_name, type="jaccard", k = 20)
+  clusters <- cluster_leiden(snn_graph, objective_function="modularity", resolution = 0.6)
+  spe[[label]] <- factor(clusters$membership)
+}
+```
+
+### Visualize clustering results
+```{r}
+#| label: plot-clustering-results
+ks <- c(
+  "leiden_cluster", "banksy_cluster_lam0.2",
+  "nnSVG_leiden_cluster", "nnSVG_banksy_cluster_lam0.2",
+  "DESpace_leiden_cluster", "DESpace_banksy_cluster_lam0.2") 
+
+# Plot spatial distribution of clusters for each method
+plots <- c(lapply(ks, \(.) {
+    plt <- plotVisium(spe, annotate=., zoom = T, point_shape = 22, point_size = 1)
+    plt
+}) ,  
+  plotVisium(spe, zoom = T,  spots=FALSE )) # add a plot of the tissue without spots
+
+# combine plots
+plots |>  wrap_plots(ncol=2) &
+      scale_fill_brewer(palette = "Set3") &
+    theme(legend.key.size=unit(0, "lines"), legend.justification="left")
+```
+
+## Save the data with SVG results
+
+```{r}
+#| label: save-data
+saveHDF5SummarizedExperiment(
+  spe,
+  dir = hdf_data_path,
+  prefix = "05_svg_",
+  replace = TRUE,
+  chunkdim = NULL,
+  level = NULL,
+  as.sparse = NA,
+  verbose = NA
+)
+```
+
+::: {.callout-tip collapse="true"}
+## Expand for Session Info
+
+```{r}
+#| label: session-info
+sessionInfo()
+```
+:::
