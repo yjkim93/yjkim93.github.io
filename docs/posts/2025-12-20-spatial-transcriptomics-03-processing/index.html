@@ -365,19 +365,20 @@ HES4                        0   .                     0</code></pre>
 </div>
 </div>
 <p>We can appreciate the spatial expression patterns of these HVGs across the tissue section. <code>IGKC</code> and <code>IGHG1</code> are plasma cell and B cell markers, indicating the presence of immune cells in the tumor microenvironment. <code>COL3A1</code> and <code>COL1A1</code> are stromal cell markers, and <code>OLFM4</code> and <code>PIGR</code> are epithelial cell markers.</p>
-<p>For downstream analysis, we select the top 1,000 HVGs.</p>
+<p>For downstream analysis, we select the top 1,000 HVGs. We remove mitochondrial genes from the selected HVGs.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>hvg <span class="ot">&lt;-</span> <span class="fu">getTopHVGs</span>(dec, <span class="at">n =</span> <span class="dv">1000</span>)</span>
-<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="fu">rowData</span>(spe)<span class="sc">$</span>hvg <span class="ot">&lt;-</span> <span class="fu">rowData</span>(spe)<span class="sc">$</span>Symbol <span class="sc">%in%</span> hvg</span>
-<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>dec[hvg, ]<span class="sc">$</span>bio <span class="sc">|&gt;</span> <span class="fu">summary</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>dec <span class="ot">&lt;-</span> dec[<span class="sc">!</span><span class="fu">row.names</span>(dec) <span class="sc">%in%</span> is.mito, ]</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>hvg <span class="ot">&lt;-</span> <span class="fu">getTopHVGs</span>(dec, <span class="at">n =</span> <span class="dv">1000</span>)</span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a><span class="fu">rowData</span>(spe)<span class="sc">$</span>hvg <span class="ot">&lt;-</span> <span class="fu">rowData</span>(spe)<span class="sc">$</span>Symbol <span class="sc">%in%</span> hvg</span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>dec[hvg, ]<span class="sc">$</span>bio <span class="sc">|&gt;</span> <span class="fu">summary</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-0.01668 0.02143 0.02957 0.08653 0.05392 4.55378 </code></pre>
+0.01620 0.02085 0.02889 0.07314 0.05140 4.55358 </code></pre>
 </div>
 </div>
 </section>
-<section id="spatially-variable-genessvgs" class="level3">
-<h3 class="anchored" data-anchor-id="spatially-variable-genessvgs">Spatially Variable Genes(SVGs)</h3>
+<section id="spatially-variable-genes-svgs" class="level3">
+<h3 class="anchored" data-anchor-id="spatially-variable-genes-svgs">Spatially Variable Genes (SVGs)</h3>
 <p>One limitation of HVG-based feature selection is the lack of spatial information. To address this, many methods have been developed to identify spatially variable genes (SVGs) that exhibit spatially patterned expression across the tissue section. Examples of such methods are <code>nnSVG</code> and <code>DESpace</code>, which will be covered in another post.</p>
 </section>
 </section>
@@ -441,18 +442,18 @@ HES4                        0   .                     0</code></pre>
 <span id="cb20-10"><a href="#cb20-10" aria-hidden="true" tabindex="-1"></a>top_genes_tbl</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code># A tibble: 10 × 10
-   PC1     PC2    PC3     PC4    PC5    PC6    PC7     PC8     PC9   PC10  
-   &lt;chr&gt;   &lt;chr&gt;  &lt;chr&gt;   &lt;chr&gt;  &lt;chr&gt;  &lt;chr&gt;  &lt;chr&gt;   &lt;chr&gt;   &lt;chr&gt; &lt;chr&gt; 
- 1 MT-CO3  COL3A1 PIGR    IGKC   IGKC   C3     CD74    FTH1    EGR1  IGHG1 
- 2 MT-CO2  COL1A1 MUC12   IGHG1  PIGR   TMSB10 IGKC    SELENOP FOS   JCHAIN
- 3 OLFM4   COL1A2 IGKC    JCHAIN TAGLN  MMP2   ACTB    LYZ     C3    IGKC  
- 4 MT-ATP6 CXCR4  FCGBP   TAGLN  COL1A1 GREM1  TAGLN   CD74    JUNB  IGHA1 
- 5 IGKC    IGKC   MUC2    A2M    COL3A1 VIM    LYZ     COL3A1  MCL1  C3    
- 6 MT-ND4  CD74   SPINK4  MMP2   DES    PECAM1 MT-ATP6 COL1A1  NR4A1 IGHM  
- 7 MT-CYB  MMP2   ITM2C   COL1A1 MUC12  IGFBP7 MT-CO3  SPARC   DUSP1 IGFBP5
- 8 MT-ND4L TXNIP  PLA2G2A DES    COL1A2 LYZ    MT-ND4  FTL     FTH1  CCL19 
- 9 MT-ND3  A2M    JCHAIN  MYH11  IGHG1  DES    COL3A1  SRGN    ZFP36 TMSB10
-10 MT-ND2  SPARC  TFF3    COL3A1 A2M    CD74   MT-CYB  COL1A2  CCN1  CCN1  </code></pre>
+   PC1    PC2    PC3     PC4    PC5    PC6    PC7    PC8     PC9   PC10  
+   &lt;chr&gt;  &lt;chr&gt;  &lt;chr&gt;   &lt;chr&gt;  &lt;chr&gt;  &lt;chr&gt;  &lt;chr&gt;  &lt;chr&gt;   &lt;chr&gt; &lt;chr&gt; 
+ 1 OLFM4  COL3A1 IGKC    TAGLN  IGKC   C3     LYZ    COL3A1  EGR1  IGHG1 
+ 2 IGKC   CXCR4  PIGR    IGKC   PIGR   TMSB10 CD74   SELENOP FOS   JCHAIN
+ 3 COL3A1 IGKC   MUC12   COL1A1 IGHG1  MMP2   FTL    COL1A1  FTH1  IGKC  
+ 4 VIM    COL1A1 IGHG1   A2M    MUC12  GREM1  TAGLN  FTH1    JUNB  IGHA1 
+ 5 COL1A2 CD74   FCGBP   DES    JCHAIN VIM    ACTB   LYZ     MCL1  C3    
+ 6 COL1A1 COL1A2 MUC2    COL3A1 FCGBP  PECAM1 DES    SPARC   C3    IGFBP5
+ 7 PIGR   TXNIP  JCHAIN  IGHG1  MUC2   IGFBP7 CTSB   CD74    OLFM4 IGHM  
+ 8 TSPAN8 OLFM4  SPINK4  MMP2   CD74   LYZ    PECAM1 FOS     ACTB  CCL19 
+ 9 MMP2   TRBC2  ITM2C   MYH11  SPINK4 CD74   VIM    ZFP36   MMP2  TMSB10
+10 MUC12  MMP2   PLA2G2A COL1A2 TMSB10 DES    VWF    PTGDS   NR4A1 DCN   </code></pre>
 </div>
 </div>
 </section>
